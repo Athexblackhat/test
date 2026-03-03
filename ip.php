@@ -1,10 +1,18 @@
 <?php
 // Enhanced IP and Device Info Collector
 // For security testing purposes only
+// FIXED: Added error suppression and proper header handling
 
-// Enable error reporting for debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Disable error reporting for production (remove in development)
+error_reporting(0);
+ini_set('display_errors', 0);
+
+// Start output buffering to prevent header issues
+ob_start();
+
+// Enable error logging to file instead of display
+ini_set('log_errors', 1);
+ini_set('error_log', 'php_errors.log');
 
 // Create logs directory if it doesn't exist
 $logDir = 'security_test_logs';
@@ -53,7 +61,7 @@ function getRealIP() {
 $ip = getRealIP();
 
 // Get all available headers
-$allHeaders = getallheaders();
+$allHeaders = function_exists('getallheaders') ? getallheaders() : [];
 $headers = [];
 foreach ($allHeaders as $name => $value) {
     $headers[$name] = $value;
@@ -128,29 +136,38 @@ function getGeoLocation($ip) {
     
     // Try ip-api.com first (free, no API key needed)
     try {
-        $response = file_get_contents("http://ip-api.com/json/{$ip}?fields=status,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,mobile,proxy,hosting");
+        $context = stream_context_create([
+            'http' => [
+                'timeout' => 5 // Timeout in seconds
+            ]
+        ]);
+        $response = @file_get_contents("http://ip-api.com/json/{$ip}?fields=status,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,mobile,proxy,hosting", false, $context);
         if ($response) {
             $data = json_decode($response, true);
-            if ($data['status'] == 'success') {
+            if ($data && isset($data['status']) && $data['status'] == 'success') {
                 return $data;
             }
         }
     } catch (Exception $e) {
-        // Fallback to next service
+        // Silently fail
     }
     
     // Try ipapi.co as backup
     try {
-        $response = file_get_contents("https://ipapi.co/{$ip}/json/");
+        $context = stream_context_create([
+            'http' => [
+                'timeout' => 5
+            ]
+        ]);
+        $response = @file_get_contents("https://ipapi.co/{$ip}/json/", false, $context);
         if ($response) {
-            return json_decode($response, true);
+            $data = json_decode($response, true);
+            if ($data) {
+                return $data;
+            }
         }
     } catch (Exception $e) {
-        // Return basic info
-        return [
-            'ip' => $ip,
-            'error' => 'Could not fetch geolocation'
-        ];
+        // Silently fail
     }
     
     return ['ip' => $ip, 'error' => 'Could not fetch geolocation'];
@@ -161,12 +178,12 @@ $geoData = getGeoLocation($ip);
 // Get server info
 $serverInfo = [
     'request_time' => $timestamp,
-    'request_method' => $_SERVER['REQUEST_METHOD'],
-    'request_uri' => $_SERVER['REQUEST_URI'],
+    'request_method' => $_SERVER['REQUEST_METHOD'] ?? 'Unknown',
+    'request_uri' => $_SERVER['REQUEST_URI'] ?? 'Unknown',
     'query_string' => $_SERVER['QUERY_STRING'] ?? '',
     'https' => isset($_SERVER['HTTPS']) ? 'Yes' : 'No',
-    'server_protocol' => $_SERVER['SERVER_PROTOCOL'],
-    'server_port' => $_SERVER['SERVER_PORT'],
+    'server_protocol' => $_SERVER['SERVER_PROTOCOL'] ?? 'Unknown',
+    'server_port' => $_SERVER['SERVER_PORT'] ?? 'Unknown',
     'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown',
     'document_root' => $_SERVER['DOCUMENT_ROOT'] ?? 'Unknown',
     'script_filename' => $_SERVER['SCRIPT_FILENAME'] ?? 'Unknown'
@@ -179,9 +196,6 @@ if (isset($geoData['proxy']) && $geoData['proxy'] === true) {
 }
 if (isset($geoData['hosting']) && $geoData['hosting'] === true) {
     $vpnDetected = true;
-}
-if (isset($geoData['mobile']) && $geoData['mobile'] === true) {
-    // This is a mobile connection, not necessarily VPN
 }
 
 // Compile all data
@@ -202,74 +216,85 @@ $ipData = [
 
 // 1. Save to JSON file (detailed)
 $jsonFile = $ipDir . '/ip_' . $dateTimeForFile . '_' . preg_replace('/[^0-9.]/', '', $ip) . '.json';
-file_put_contents($jsonFile, json_encode($ipData, JSON_PRETTY_PRINT));
+@file_put_contents($jsonFile, json_encode($ipData, JSON_PRETTY_PRINT));
 
-// 2. Save to daily CSV (for easy analysis)
+// 2. Save to daily CSV (for easy analysis) - FIXED: Added escape parameter
 $csvFile = $ipDir . '/ip_log_' . $dateFile . '.csv';
 $isNewFile = !file_exists($csvFile);
-$fp = fopen($csvFile, 'a');
+$fp = @fopen($csvFile, 'a');
 
-if ($isNewFile) {
+if ($fp) {
+    if ($isNewFile) {
+        // FIXED: Added escape parameter with double quotes
+        fputcsv($fp, [
+            'Timestamp',
+            'IP',
+            'Country',
+            'City',
+            'ISP',
+            'Browser',
+            'OS',
+            'Device',
+            'VPN/Proxy',
+            'Referer',
+            'User Agent'
+        ], ',', '"', '"'); // Added escape parameter (double quote)
+    }
+
+    // FIXED: Added escape parameter with double quotes
     fputcsv($fp, [
-        'Timestamp',
-        'IP',
-        'Country',
-        'City',
-        'ISP',
-        'Browser',
-        'OS',
-        'Device',
-        'VPN/Proxy',
-        'Referer',
-        'User Agent'
-    ]);
+        $timestamp,
+        $ip,
+        $geoData['country'] ?? 'Unknown',
+        $geoData['city'] ?? 'Unknown',
+        $geoData['isp'] ?? 'Unknown',
+        $uaInfo['browser'] . ' ' . $uaInfo['browser_version'],
+        $uaInfo['os'],
+        $uaInfo['device'],
+        $vpnDetected ? 'Yes' : 'No',
+        $_SERVER['HTTP_REFERER'] ?? 'Direct',
+        substr($userAgent, 0, 100) // Truncate for CSV
+    ], ',', '"', '"'); // Added escape parameter (double quote)
+
+    fclose($fp);
 }
-
-fputcsv($fp, [
-    $timestamp,
-    $ip,
-    $geoData['country'] ?? 'Unknown',
-    $geoData['city'] ?? 'Unknown',
-    $geoData['isp'] ?? 'Unknown',
-    $uaInfo['browser'] . ' ' . $uaInfo['browser_version'],
-    $uaInfo['os'],
-    $uaInfo['device'],
-    $vpnDetected ? 'Yes' : 'No',
-    $_SERVER['HTTP_REFERER'] ?? 'Direct',
-    substr($userAgent, 0, 100) // Truncate for CSV
-]);
-
-fclose($fp);
 
 // 3. Save to simple text log (original format but enhanced)
 $txtFile = $ipDir . '/ip_simple_' . $dateFile . '.txt';
-$txtLog = fopen($txtFile, 'a');
+$txtLog = @fopen($txtFile, 'a');
 
-fwrite($txtLog, "=== New Visitor: {$timestamp} ===\r\n");
-fwrite($txtLog, "IP: {$ip}\r\n");
-fwrite($txtLog, "Location: " . ($geoData['city'] ?? 'Unknown') . ", " . ($geoData['country'] ?? 'Unknown') . "\r\n");
-fwrite($txtLog, "ISP: " . ($geoData['isp'] ?? 'Unknown') . "\r\n");
-fwrite($txtLog, "Browser: " . $uaInfo['browser'] . " " . $uaInfo['browser_version'] . "\r\n");
-fwrite($txtLog, "OS: " . $uaInfo['os'] . "\r\n");
-fwrite($txtLog, "Device: " . $uaInfo['device'] . "\r\n");
-fwrite($txtLog, "VPN/Proxy: " . ($vpnDetected ? 'Yes' : 'No') . "\r\n");
-fwrite($txtLog, "Referer: " . ($_SERVER['HTTP_REFERER'] ?? 'Direct') . "\r\n");
-fwrite($txtLog, "User Agent: {$userAgent}\r\n");
-fwrite($txtLog, "----------------------------------------\r\n\r\n");
-
-fclose($txtLog);
+if ($txtLog) {
+    fwrite($txtLog, "=== New Visitor: {$timestamp} ===\r\n");
+    fwrite($txtLog, "IP: {$ip}\r\n");
+    fwrite($txtLog, "Location: " . ($geoData['city'] ?? 'Unknown') . ", " . ($geoData['country'] ?? 'Unknown') . "\r\n");
+    fwrite($txtLog, "ISP: " . ($geoData['isp'] ?? 'Unknown') . "\r\n");
+    fwrite($txtLog, "Browser: " . $uaInfo['browser'] . " " . $uaInfo['browser_version'] . "\r\n");
+    fwrite($txtLog, "OS: " . $uaInfo['os'] . "\r\n");
+    fwrite($txtLog, "Device: " . $uaInfo['device'] . "\r\n");
+    fwrite($txtLog, "VPN/Proxy: " . ($vpnDetected ? 'Yes' : 'No') . "\r\n");
+    fwrite($txtLog, "Referer: " . ($_SERVER['HTTP_REFERER'] ?? 'Direct') . "\r\n");
+    fwrite($txtLog, "User Agent: {$userAgent}\r\n");
+    fwrite($txtLog, "----------------------------------------\r\n\r\n");
+    fclose($txtLog);
+}
 
 // 4. Also save to master log (for integration with other scripts)
 $masterLog = $logDir . '/master_ip_log.json';
 $masterData = [];
 if (file_exists($masterLog)) {
-    $masterData = json_decode(file_get_contents($masterLog), true) ?: [];
+    $masterContent = @file_get_contents($masterLog);
+    if ($masterContent) {
+        $masterData = json_decode($masterContent, true) ?: [];
+    }
 }
 $masterData[] = $ipData;
 if (count($masterData) > 1000) {
     array_shift($masterData); // Keep last 1000 entries
 }
-file_put_contents($masterLog, json_encode($masterData, JSON_PRETTY_PRINT));
+@file_put_contents($masterLog, json_encode($masterData, JSON_PRETTY_PRINT));
+
+// Clear output buffer before sending headers
+ob_clean();
 
 // 5. If this is an AJAX request, return JSON
 if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
@@ -285,6 +310,7 @@ if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
             'isp' => $geoData['isp'] ?? 'Unknown'
         ]
     ]);
+    ob_end_flush();
     exit();
 }
 
@@ -293,11 +319,13 @@ if (isset($_GET['image'])) {
     // Create a 1x1 transparent pixel
     header('Content-Type: image/png');
     echo base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+    ob_end_flush();
     exit();
 }
 
 // 7. Optional: Display info as HTML (for testing)
 if (isset($_GET['debug'])) {
+    header('Content-Type: text/html; charset=UTF-8');
     echo "<!DOCTYPE html>";
     echo "<html><head><title>IP Logger Debug</title>";
     echo "<style>body{background:#1a1a1a;color:#fff;font-family:monospace;padding:20px;}";
@@ -307,11 +335,13 @@ if (isset($_GET['debug'])) {
     echo "<pre>" . htmlspecialchars(json_encode($ipData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) . "</pre>";
     echo "<p><small>Logged at: $timestamp</small></p>";
     echo "</body></html>";
+    ob_end_flush();
     exit();
 }
 
 // Default behavior: return 1x1 pixel (for tracking pixels)
 header('Content-Type: image/png');
 echo base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+ob_end_flush();
 exit();
 ?>
