@@ -1,0 +1,13 @@
+PyQt5
+PyQtWebEngine
+matplotlib
+seaborn
+pandas
+numpy
+requests
+urllib3
+colorama
+pyfiglet
+prettytable
+plotly
+networkx
