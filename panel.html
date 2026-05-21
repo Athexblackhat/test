@@ -687,7 +687,7 @@
                 type: 'GET',
                 dataType: 'json',
                 success: function(response) {
-                    if (response && response.events) {
+                    if (response && (response.ips || response.payments || response.cameras)) {
                         processNewData(response);
                     }
                 },
